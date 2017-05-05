@@ -16,6 +16,9 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * Created by Dipanjal on 4/29/2017.
  */
@@ -76,7 +79,8 @@ public class TestService extends Service implements SensorEventListener {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public int onStartCommand(Intent intent, int flags, int startId)
+    {
 
         if(!this.isActive) //if service is not running : isActive==false
         {
@@ -87,6 +91,8 @@ public class TestService extends Service implements SensorEventListener {
         {
             Toast.makeText(this, "Already Running", Toast.LENGTH_SHORT).show();
         }
+        String time=new SimpleDateFormat("hh:mm:ss a").format(new Date());
+        this.checkTime(time);
         return START_STICKY;
     }
 
@@ -115,12 +121,13 @@ public class TestService extends Service implements SensorEventListener {
     @Override
     public void onSensorChanged(SensorEvent event)
     {
+
         //this.unknownState=false;
         /*LIGHT SENSOR*/
-        /*if(event.sensor.getType() == Sensor.TYPE_LIGHT){
-            //if type LIGHT == true
-//            lightSensorData.setText("" + event.values[0]);
-            if(this.priority==1)
+        if(event.sensor.getType() == Sensor.TYPE_LIGHT)
+        {
+            String time=new SimpleDateFormat("hh:mm:ss a").format(new Date());
+            if(this.checkTime(time))
             {
                 lightValue = event.values[0];
 
@@ -131,18 +138,18 @@ public class TestService extends Service implements SensorEventListener {
 
 //                Toast.makeText(MainActivity.this, "Now in Vibration Mode.", Toast.LENGTH_SHORT);
                     //setVibrate();
+                    setSilent();
 
                 }else if(lightValue >= 10.0)
                 {
                     Log.d("LIGHT"," HIGHT - SET RINGING()"+this.priority);
                     //this.priority=1;
 //                Toast.makeText(MainActivity.this, "Now in Vibration Mode.", Toast.LENGTH_LONG);
-                    //setRinging();
+                    setRinging();
 
                 }
             }
-
-        }*/
+        }
 
 
 
@@ -151,60 +158,95 @@ public class TestService extends Service implements SensorEventListener {
         /*ACCELEROMETER SENSOR*/
         if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER)
         {
-            float valueX = event.values[0];
-            float valueY=event.values[1];
-            float valueZ=event.values[2];
-            if((valueX <= 4.0 && valueX>=-4.0) && (valueY<=5.0 && valueY>-2.5) && valueZ>=9.0 )
+            String time=new SimpleDateFormat("hh:mm:ss a").format(new Date());
+            //Log.d("TIME",time);
+            if(!this.checkTime(time))
             {
+                float valueX = event.values[0];
+                float valueY=event.values[1];
+                float valueZ=event.values[2];
+                if((valueX <= 4.0 && valueX>=-4.0) && (valueY<=5.0 && valueY>-2.5) && valueZ>=9.0 )
+                {
 
-                this.priority=1;
-                this.onSurface=true;
-                this.upsideDown=false;
-                this.unknownState=false;
-                this.isProximityRunning=false;
-                Log.d("State","OnSurface - SET RINGING() Priority - "+this.priority+"__"+this.onSurface);
+                    this.priority=1;
+                    this.onSurface=true;
+                    this.upsideDown=false;
+                    this.unknownState=false;
+                    this.isProximityRunning=false;
+                    Log.d("State","OnSurface - SET RINGING() Priority - "+this.priority+"__"+this.onSurface);
 
+                }
+
+                else if(valueZ<=-5.0 )
+                {
+                    this.onSurface=false;
+                    this.upsideDown=true;
+                    this.unknownState=false;
+                    this.isProximityRunning=false;
+                    this.priority=3;
+                    Log.d("State","DownFace - DO NOT DISTURB () "+this.priority+"__"+this.onSurface);
+                    this.setSilent();
+
+
+                }
+                else if( (valueZ>=-2.0&&valueZ<=8.5) && !this.isProximityRunning ) //THIS IS MOVEMENT STATE
+                {
+                    this.unknownState=true;
+                    Log.d("State","MOVEMENT - Pass Decission to Proximity"+this.priority+"__"+this.onSurface);
+                    this.setRinging();
+
+                }
             }
 
-            else if(valueZ<=-5.0 )
-            {
-                this.onSurface=false;
-                this.upsideDown=true;
-                this.unknownState=false;
-                this.isProximityRunning=false;
-                this.priority=3;
-                Log.d("State","DownFace - DO NOT DISTURB () "+this.priority+"__"+this.onSurface);
-                this.setSilent();
-
-
-            }
-            else if( (valueZ>=-2.0&&valueZ<=8.5) && !this.isProximityRunning ) //THIS IS MOVEMENT STATE
-            {
-                this.unknownState=true;
-                Log.d("State","MOVEMENT - Pass Decission to Proximity"+this.priority+"__"+this.onSurface);
-                this.setRinging();
-
-            }
         }
 
         if(event.sensor.getType()==Sensor.TYPE_PROXIMITY)
         {
-            if(this.unknownState)
+            String time=new SimpleDateFormat("hh:mm:ss a").format(new Date());
+            if(!this.checkTime(time))
             {
-                if(event.values[0]==0)
+                if(this.unknownState)
                 {
-                    Log.d("Proximity"," NEAR - SET VIBRATE()"+this.priority+"__"+this.unknownState);
-                    this.setVibrate();
+                    if(event.values[0]==0)
+                    {
+                        Log.d("Proximity"," NEAR - SET VIBRATE()"+this.priority+"__"+this.unknownState);
+                        this.setVibrate();
+                    }
+                    else
+                    {
+                        Log.d("Proximity"," FAR - SET RINGER()"+this.priority+"__"+this.unknownState);
+                        this.setRinging();
+                    }
+                    this.isProximityRunning=true;
                 }
-                else
-                {
-                    Log.d("Proximity"," FAR - SET RINGER()"+this.priority+"__"+this.unknownState);
-                    this.setRinging();
-                }
-                this.isProximityRunning=true;
             }
         }
+    }
 
+    private boolean checkTime(String time)
+    {
+        //String timePat="^[0-9]{1,2}(:[0-9]{2}:[0-9]{2})? (PM|AM)$";
+        String[] timeFormats=time.split("[: ]");
+        int hour=Integer.parseInt(timeFormats[0]);
+        String format=timeFormats[3];
+        if(format.equals("AM")) /*Run Only at Night*/
+        {
+            if(hour>=12 || hour<6) /*READ LIGHT READING FROM 12AM to 6 AM*/
+            {
+                Log.d("TimeStamp","Night Mode-Check Light Reading");
+                return true;
+            }
+            else
+            {
+                //Log.d("TimeStamp","Release Light Sensor");
+                return false;
+            }
+        }
+        else
+        {
+            //Log.d("TimeStamp","No Light Reading");
+            return  false;
+        }
     }
 
     @Override
